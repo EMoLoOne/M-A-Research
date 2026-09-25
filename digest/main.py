@@ -17,7 +17,7 @@ import sys
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
-from . import learn, notes, render, state
+from . import learn, llm, notes, render, state
 from .config import ROOT, SUBJECT_PREFIX, Config, load_config
 from .curate import CuratedDigest
 
@@ -88,7 +88,14 @@ def process_feedback(cfg: Config, today: date, run_state: dict) -> list[str]:
         return []
 
     log.info("Applying %d feedback item(s) to the preference profile", len(items))
-    update = learn.apply_feedback(cfg, notes.get_profile(), items, state.load_recent_digests(today), today)
+    try:
+        update = learn.apply_feedback(cfg, notes.get_profile(), items, state.load_recent_digests(today), today)
+    except llm.ConfigurationError:
+        raise
+    except Exception:
+        # Leave the inbox and message ids untouched so this feedback is retried next run.
+        log.exception("Could not apply feedback today; it will be retried on the next run")
+        return []
     notes.write_profile_and_log(update.updated_profile, learn.format_log_entry(today, items, update))
     if inbox:
         notes.clear_inbox()
@@ -134,10 +141,40 @@ def build_email(cfg: Config, digest: CuratedDigest, today: date, window_desc: st
     return subject, html, text, sections
 
 
-def cmd_run(args) -> int:
-    from . import curate, research
+def preflight(cfg: Config, dry_run: bool) -> list[str]:
+    """Configuration problems that would make the run fail; checked before any API spend."""
+    problems = []
+    try:
+        llm.check_credentials()
+    except llm.ConfigurationError as e:
+        problems.append(str(e))
+    if not dry_run and not cfg.smtp:
+        problems.append("SMTP_USERNAME / SMTP_PASSWORD are not set, so the digest cannot be emailed. "
+                        "Add them as repository secrets, or run with --dry-run.")
+    return problems
+
+
+def report_failure(cfg: Config, today: date, run_state: dict, error: BaseException, out: Path) -> None:
+    """Leave a visible trace of a failed run: an HTML report and (once a day) an email."""
+    from html import escape
+
     from .mailer import send_digest
 
+    msg = f"{type(error).__name__}: {error}"
+    body = (f"<p>Today's Consumer M&amp;A Digest could not be produced.</p><pre style='white-space:pre-wrap'>"
+            f"{escape(msg)}</pre><p>The next scheduled run will try again. Check the GitHub Actions log for details.</p>")
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.with_name("error.html").write_text(body)
+    if cfg.smtp and run_state.get("last_failure_notice") != today.isoformat():
+        try:
+            send_digest(cfg, f"{SUBJECT_PREFIX} · {today.isoformat()} · run failed", body, msg)
+            run_state["last_failure_notice"] = today.isoformat()
+            state.save_run_state(run_state)
+        except Exception:
+            log.exception("Could not send failure notice")
+
+
+def cmd_run(args) -> int:
     cfg = load_config()
     now_utc = datetime.now(timezone.utc)
     now_local = now_utc.astimezone(cfg.tz)
@@ -150,6 +187,27 @@ def cmd_run(args) -> int:
             log.info("Not sending: %s", why)
             return 0
 
+    problems = preflight(cfg, args.dry_run)
+    if problems:
+        for p in problems:
+            log.error("Setup problem: %s", p)
+            if os.environ.get("GITHUB_ACTIONS"):
+                print(f"::error title=Digest setup::{p}", flush=True)
+        return 2
+
+    try:
+        return _run_digest(cfg, args, now_utc, now_local, today, run_state)
+    except Exception as e:
+        log.exception("Digest run failed")
+        if not args.dry_run:
+            report_failure(cfg, today, run_state, e, Path(args.out))
+        return 1
+
+
+def _run_digest(cfg: Config, args, now_utc: datetime, now_local: datetime, today: date, run_state: dict) -> int:
+    from . import curate, research
+    from .mailer import send_digest
+
     feedback_changes = [] if args.skip_feedback else process_feedback(cfg, today, run_state)
     state.save_run_state(run_state)  # persist processed feedback ids even if a later step fails
     profile = notes.get_profile()
@@ -159,9 +217,13 @@ def cmd_run(args) -> int:
                    f"{now_local.tzname()}")
     log.info("Window: %s", window_desc)
 
-    raw = research.research_all(cfg, profile, start, end, today.isoformat())
+    raw, failed_sectors = research.research_all(cfg, profile, start, end, today.isoformat())
     digest = curate.curate(cfg, profile, raw, state.recent_sent_deals(today, cfg.dedupe_days),
                            f"{start:%Y-%m-%d %H:%M} UTC to {end:%Y-%m-%d %H:%M} UTC ({window_desc})")
+
+    if failed_sectors:
+        digest.tuning_notes.append("Search failed today for: " + ", ".join(failed_sectors)
+                                   + ". Deals in those sectors may be missing.")
 
     include_profile = wants_profile_summary(cfg, today, run_state)
     subject, html, text, sections = build_email(cfg, digest, today, window_desc, feedback_changes,

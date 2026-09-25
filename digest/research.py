@@ -77,8 +77,13 @@ If you find nothing that fits the window, say so plainly. Output plain text, one
 """
 
 
+class ResearchError(RuntimeError):
+    pass
+
+
 def research_all(cfg: Config, profile: str, window_start: datetime, window_end: datetime,
-                 local_date: str) -> dict[str, str]:
+                 local_date: str) -> tuple[dict[str, str], list[str]]:
+    """Returns (notes by sector, sectors whose research failed)."""
     weights = sector_weights(profile, list(cfg.sector_groups))
     jobs = {}
     for sector, scope in cfg.sector_groups.items():
@@ -88,7 +93,7 @@ def research_all(cfg: Config, profile: str, window_start: datetime, window_end: 
             continue
         jobs[sector] = (scope, budget)
 
-    def run(sector: str) -> tuple[str, str]:
+    def run(sector: str) -> tuple[str, str | None, str | None]:
         scope, budget = jobs[sector]
         log.info("Researching %s (%d searches)", sector, budget)
         tools = [
@@ -97,15 +102,28 @@ def research_all(cfg: Config, profile: str, window_start: datetime, window_end: 
         ]
         try:
             text = llm.run_with_tools(
-                model=cfg.models["research"],
+                models=cfg.models["research"],
                 system=RESEARCH_SYSTEM,
                 prompt=_group_prompt(sector, scope, window_start, window_end, local_date, profile),
                 tools=tools,
+                effort=cfg.effort["research"],
+                what=f"Research for {sector}",
             )
-        except Exception:  # one failing sector should not sink the whole digest
+            return sector, text, None
+        except llm.ConfigurationError:
+            raise
+        except Exception as e:  # one failing sector should not sink the whole digest
             log.exception("Research failed for %s", sector)
-            text = "RESEARCH FAILED for this sector - no results."
-        return sector, text
+            return sector, None, str(e)
 
     with ThreadPoolExecutor(max_workers=3) as pool:
-        return dict(pool.map(run, list(jobs)))
+        results = list(pool.map(run, list(jobs)))
+
+    ok = {s: t for s, t, _ in results if t is not None}
+    failed = {s: err for s, _, err in results if err is not None}
+    if jobs and not ok:
+        raise ResearchError("All sector research requests failed: " + "; ".join(f"{s}: {e}" for s, e in failed.items()))
+    # Tell the curator which sectors are missing so it doesn't read silence as "no deals".
+    for s in failed:
+        ok[s] = "RESEARCH UNAVAILABLE for this sector today (request failed); report no deals for it."
+    return ok, list(failed)

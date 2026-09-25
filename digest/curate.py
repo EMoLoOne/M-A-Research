@@ -98,8 +98,8 @@ Produce the digest:
 9. `tuning_notes`: up to 3 short notes on how the preference profile changed what is shown today
    (e.g. "Ranked pet deals higher per your feedback"). Empty if nothing notable.
 """
-    result = llm.parse(model=cfg.models["curation"], system=CURATION_SYSTEM, prompt=prompt,
-                       schema=CuratedDigest)
+    result = llm.parse(models=cfg.models["curation"], system=CURATION_SYSTEM, prompt=prompt,
+                       schema=CuratedDigest, effort=cfg.effort["curation"], what="Curation")
     # Guard against labels outside the configured set.
     for d in result.deals:
         if d.sector not in cfg.sector_groups:

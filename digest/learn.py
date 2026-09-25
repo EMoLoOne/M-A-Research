@@ -80,8 +80,10 @@ Return:
   ("Raised Pets priority to 1.4 after you upvoted two vet-clinic deals"). Empty if nothing changed.
 - interpretation: 1-3 sentences on how you read the feedback, for the feedback log.
 """
-    return llm.parse(model=cfg.models["feedback"], system=LEARN_SYSTEM.format(sectors=json.dumps(list(cfg.sector_groups))),
-                     prompt=prompt, schema=ProfileUpdate)
+    return llm.parse(models=cfg.models["feedback"],
+                     system=LEARN_SYSTEM.format(sectors=json.dumps(list(cfg.sector_groups))),
+                     prompt=prompt, schema=ProfileUpdate, effort=cfg.effort["feedback"],
+                     what="Feedback processing")
 
 
 def summarize_learning(cfg: Config, profile: str, feedback_log: str, since: str | None) -> str:
@@ -102,8 +104,9 @@ gets prioritized and why (cite their feedback), anything that looks like it may 
 further than they intended, and one question that would most improve the next digests.
 If there has been no feedback yet, say so in one bullet and invite them to rate a few deals.
 """
-    return llm.parse(model=cfg.models["feedback"], system="You write concise, specific notes.",
-                     prompt=prompt, schema=LearningSummary, effort="medium").summary_markdown
+    return llm.parse(models=cfg.models["feedback"], system="You write concise, specific notes.",
+                     prompt=prompt, schema=LearningSummary, effort="medium",
+                     what="Learning summary").summary_markdown
 
 
 def format_log_entry(today: date, feedback_items: list[dict], update: ProfileUpdate) -> str:

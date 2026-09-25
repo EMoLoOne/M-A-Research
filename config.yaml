@@ -6,11 +6,23 @@ timezone: America/Los_Angeles
 send_time: "07:00"          # local time the digest should land
 lookback_hours: 24
 
-# Models. Research does the web searching; curation ranks/structures; feedback updates the notes file.
+# Models, per step, in fallback order: if the first model is unavailable, overloaded, refuses,
+# or returns truncated/invalid output (after one retry), the next one is used.
+# - research: many parallel, reading-heavy web-search requests -> Sonnet 5 (fast, cheaper),
+#   with Opus 5 as backup.
+# - curation: the judgment-heavy step that decides what you see and in what order -> Opus 5.
+# - feedback: interprets your replies and edits your preference profile -> Opus 5.
 models:
-  research: claude-sonnet-5
-  curation: claude-opus-5
-  feedback: claude-opus-5
+  research: [claude-sonnet-5, claude-opus-5]
+  curation: [claude-opus-5, claude-sonnet-5]
+  feedback: [claude-opus-5, claude-sonnet-5]
+
+# Reasoning effort per step (low | medium | high | xhigh | max). "high" is the recommended
+# floor for quality-sensitive work; raise curation to "xhigh" if rankings feel off.
+effort:
+  research: high
+  curation: high
+  feedback: high
 
 # Max web searches per sector group per run. The effective budget is scaled by the
 # sector weights in preferences/notes.md (high-priority sectors get more searches).

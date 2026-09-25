@@ -100,13 +100,30 @@ python -m digest preview tests/fixtures/sample_digest.json --with-profile  # off
 python -m pytest
 ```
 
-## Cost and tuning
+## Models and reliability
 
-Each run makes 6 research requests on `claude-sonnet-5` (up to 8 web searches each by default,
-scaled by sector weight), plus 1–3 curation/feedback requests on `claude-opus-5`. Change either in
-`config.yaml` under `models`; lower `searches_per_group` to cut cost further. Opus/Fable requests
-enable Anthropic's server-side refusal fallback (`fallbacks: "default"`), so a request that a safety
-classifier declines is retried on a fallback model rather than dropped.
+| Step | Models (in fallback order) | Why |
+|---|---|---|
+| Research (6 parallel web-search requests) | `claude-sonnet-5` → `claude-opus-5` | Reading-heavy, high-volume work: fast and cheaper |
+| Curation (dedupe, filter, rank) | `claude-opus-5` → `claude-sonnet-5` | The judgment call on what you see and in what order |
+| Feedback + profile summary | `claude-opus-5` → `claude-sonnet-5` | Careful interpretation of your replies |
+
+All calls use adaptive thinking at `high` effort (set per step under `effort:` in `config.yaml`).
+Each call streams with a 64K-token output ceiling, so long answers are not cut off and requests do
+not time out.
+
+How a run avoids failing:
+- **Before any API spend**, the run checks that `ANTHROPIC_API_KEY` and the SMTP secrets are set.
+  If one is missing, it stops with a clear error in the Actions log.
+- **Each model call** that hits an overload, a refusal, truncated output, or invalid structured
+  output is retried once, then handed to the next model in the list. An unavailable model is
+  skipped straight away. Opus requests also use Anthropic's server-side refusal fallback.
+- **If some sectors' research fails**, the digest still goes out, with a note naming the sectors
+  that may be missing deals. If feedback processing fails, it is kept and retried the next day.
+- **If the whole run fails**, you get one short "run failed" email with the reason, and the
+  second daily cron slot tries again.
+
+To cut cost, lower `searches_per_group`.
 
 ## Files
 

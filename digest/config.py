@@ -19,6 +19,8 @@ RUN_STATE_PATH = STATE_DIR / "run_state.json"
 
 SUBJECT_PREFIX = "Consumer M&A Digest"
 
+DEFAULT_EFFORT = {"research": "high", "curation": "high", "feedback": "high"}
+
 
 @dataclass
 class SmtpSettings:
@@ -44,7 +46,8 @@ class Config:
     timezone: str
     send_time: str
     lookback_hours: int
-    models: dict[str, str]
+    models: dict[str, list[str]]
+    effort: dict[str, str]
     searches_per_group: int
     sector_groups: dict[str, str]
     profile_summary_weekday: str
@@ -106,7 +109,8 @@ def load_config(path: Path = ROOT / "config.yaml") -> Config:
         timezone=raw["timezone"],
         send_time=raw["send_time"],
         lookback_hours=int(raw.get("lookback_hours", 24)),
-        models=raw["models"],
+        models={role: ([m] if isinstance(m, str) else list(m)) for role, m in raw["models"].items()},
+        effort={**DEFAULT_EFFORT, **(raw.get("effort") or {})},
         searches_per_group=int(raw.get("searches_per_group", 8)),
         sector_groups=raw["sector_groups"],
         profile_summary_weekday=raw.get("profile_summary_weekday", "Monday"),
