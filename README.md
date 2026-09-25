@@ -102,11 +102,11 @@ python -m pytest
 
 ## Cost and tuning
 
-Each run makes 6 research requests (up to 8 web searches each by default, scaled by sector weight)
-plus 1–3 short Claude requests, all on `claude-opus-5`. To cut cost, lower `searches_per_group`, or
-set `models.research` to `claude-sonnet-5` in `config.yaml`. Requests enable Anthropic's
-server-side refusal fallback (`fallbacks: "default"`), so a request that a safety classifier
-declines is retried on a fallback model rather than dropped.
+Each run makes 6 research requests on `claude-sonnet-5` (up to 8 web searches each by default,
+scaled by sector weight), plus 1–3 curation/feedback requests on `claude-opus-5`. Change either in
+`config.yaml` under `models`; lower `searches_per_group` to cut cost further. Opus/Fable requests
+enable Anthropic's server-side refusal fallback (`fallbacks: "default"`), so a request that a safety
+classifier declines is retried on a fallback model rather than dropped.
 
 ## Files
 

@@ -13,6 +13,7 @@ log = logging.getLogger(__name__)
 # Server-side refusal fallback: if a request is declined by a safety classifier, the API
 # re-runs it on Anthropic's recommended fallback model instead of returning an empty refusal.
 FALLBACK_BETA = "server-side-fallback-2026-07-01"
+FALLBACK_MODELS = {"claude-opus-5", "claude-opus-5-5", "claude-fable-5-1", "claude-fable-5"}
 MAX_CONTINUATIONS = 6
 
 T = TypeVar("T", bound=BaseModel)
@@ -25,6 +26,13 @@ def client() -> anthropic.Anthropic:
     if _client is None:
         _client = anthropic.Anthropic(max_retries=4)
     return _client
+
+
+def _fallback_args(model: str) -> dict:
+    """Only send the fallback parameter to models documented to support it."""
+    if model in FALLBACK_MODELS:
+        return {"betas": [FALLBACK_BETA], "fallbacks": "default"}
+    return {}
 
 
 def _text_of(content) -> str:
@@ -47,8 +55,7 @@ def run_with_tools(*, model: str, system: str, prompt: str, tools: list[dict], e
             tools=tools,
             thinking={"type": "adaptive"},
             output_config={"effort": effort},
-            betas=[FALLBACK_BETA],
-            fallbacks="default",
+            **_fallback_args(model),
         ) as stream:
             response = stream.get_final_message()
 
@@ -73,8 +80,7 @@ def parse(*, model: str, system: str, prompt: str, schema: type[T], effort: str 
         output_format=schema,
         thinking={"type": "adaptive"},
         output_config={"effort": effort},
-        betas=[FALLBACK_BETA],
-        fallbacks="default",
+        **_fallback_args(model),
     )
     if response.stop_reason == "refusal":
         raise RuntimeError(f"Model declined the request: {response.stop_details}")

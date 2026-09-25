@@ -8,7 +8,7 @@ lookback_hours: 24
 
 # Models. Research does the web searching; curation ranks/structures; feedback updates the notes file.
 models:
-  research: claude-opus-5
+  research: claude-sonnet-5
   curation: claude-opus-5
   feedback: claude-opus-5
 
