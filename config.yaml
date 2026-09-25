@@ -1,0 +1,46 @@
+# Consumer M&A Digest configuration.
+# Secrets (API key, SMTP/IMAP passwords) come from environment variables, never this file.
+
+recipient: molo@berkeley.edu
+timezone: America/Los_Angeles
+send_time: "07:00"          # local time the digest should land
+lookback_hours: 24
+
+# Models. Research does the web searching; curation ranks/structures; feedback updates the notes file.
+models:
+  research: claude-opus-5
+  curation: claude-opus-5
+  feedback: claude-opus-5
+
+# Max web searches per sector group per run. The effective budget is scaled by the
+# sector weights in preferences/notes.md (high-priority sectors get more searches).
+searches_per_group: 8
+
+# Sector groups searched in parallel. Keys are the sector labels used in the email.
+sector_groups:
+  Restaurants & Foodservice: >-
+    restaurant chains, franchisors and franchisees, QSR, fast casual, casual dining,
+    coffee and snack chains, foodservice distributors, contract caterers
+  Food & Beverage: >-
+    packaged food, snacks, confectionery, dairy, frozen, ingredients sold to consumers,
+    non-alcoholic beverages, beer, wine, spirits, cannabis-infused beverages
+  Retail & E-commerce: >-
+    retailers (grocery, specialty, department stores, discount, convenience),
+    e-commerce and DTC brands, apparel, footwear, accessories, luxury, marketplaces
+  Consumer Health & Beauty: >-
+    OTC drugs, vitamins/minerals/supplements, personal care, cosmetics, skincare,
+    fragrance, hair care, oral care, wellness, fitness and gyms, med-spa and aesthetics
+  Pets: >-
+    pet food, pet products, pet retail, veterinary clinics and services,
+    pet insurance, pet services (grooming, boarding)
+  Home, Leisure & Consumer Services: >-
+    home furnishings, housewares, appliances, home improvement, toys, sporting goods,
+    outdoor recreation, travel, hotels, leisure and entertainment venues, consumer services
+    (car wash, salons, childcare, education), consumer tech hardware and subscriptions
+
+# How often to include the "What I've learned" preference-profile section (in days).
+# It is always included on the first run and on the configured weekday.
+profile_summary_weekday: Monday
+
+# Deals seen in the last N days are not repeated unless materially updated.
+dedupe_days: 10

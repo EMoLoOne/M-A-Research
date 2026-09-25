@@ -1,0 +1,88 @@
+name: Daily consumer M&A digest
+
+on:
+  schedule:
+    # GitHub cron is UTC-only. Target: 7:00 AM America/Los_Angeles.
+    # These two runs are ~6:41 AM local in PDT (13:41 UTC) and PST (14:41 UTC). The script
+    # sends on whichever run is first at/after 6:15 AM local and skips the other.
+    - cron: "41 13 * * *"
+    - cron: "41 14 * * *"
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Send now, ignoring the time-of-day / already-sent guard"
+        type: boolean
+        default: true
+      dry_run:
+        description: "Build the email but don't send it (HTML is uploaded as an artifact)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write  # to commit preferences/notes.md and state/ back to the repo
+
+concurrency:
+  group: daily-digest
+  cancel-in-progress: false
+
+jobs:
+  digest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - name: Build and send digest
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USERNAME: ${{ secrets.SMTP_USERNAME }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          SMTP_FROM: ${{ secrets.SMTP_FROM }}
+          IMAP_HOST: ${{ secrets.IMAP_HOST }}
+          IMAP_USERNAME: ${{ secrets.IMAP_USERNAME }}
+          IMAP_PASSWORD: ${{ secrets.IMAP_PASSWORD }}
+          FEEDBACK_SENDERS: ${{ secrets.FEEDBACK_SENDERS }}
+        run: |
+          # Empty secrets arrive as empty strings; drop them so defaults apply.
+          for v in SMTP_HOST SMTP_PORT SMTP_FROM IMAP_HOST IMAP_USERNAME IMAP_PASSWORD FEEDBACK_SENDERS; do
+            [ -z "${!v}" ] && unset "$v"
+          done
+          args=""
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            [ "${{ inputs.force }}" = "true" ] && args="$args --force"
+            [ "${{ inputs.dry_run }}" = "true" ] && args="$args --dry-run"
+          fi
+          python -m digest run $args
+
+      - name: Upload email preview
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: digest-${{ github.run_id }}
+          path: out/
+          if-no-files-found: ignore
+
+      - name: Commit learned preferences and state
+        if: always()
+        run: |
+          git config user.name "consumer-ma-digest[bot]"
+          git config user.email "consumer-ma-digest@users.noreply.github.com"
+          git add preferences/notes.md feedback/inbox.md state/
+          if git diff --cached --quiet; then
+            echo "Nothing to commit"; exit 0
+          fi
+          git commit -m "Digest $(TZ=America/Los_Angeles date +%F): update preferences and state"
+          for i in 1 2 3; do
+            git pull --rebase origin "${GITHUB_REF_NAME}" && git push origin "HEAD:${GITHUB_REF_NAME}" && exit 0
+            sleep $((i * 5))
+          done
+          exit 1

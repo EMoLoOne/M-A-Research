@@ -1,0 +1,16 @@
+{
+  "headline": "SAMPLE DATA (fictional companies): Northwind Foods' $2.4B deal for Harvest Lane Snacks leads a 6-deal day.",
+  "deals": [
+    {"acquirer": "Northwind Foods", "target": "Harvest Lane Snacks", "sector": "Food & Beverage", "subsector": "Salty snacks", "deal_type": "Acquisition", "status": "Announced", "value_usd_millions": 2400, "value_text": "$2.4B", "description": "Better-for-you chip maker; adds a fast-growing brand to Northwind's snack portfolio.", "significance": 92, "is_update": false, "sources": [{"publisher": "Business Wire", "url": "https://example.com/northwind"}]},
+    {"acquirer": "Bluefin Capital", "target": "Tailwag Veterinary Partners", "sector": "Pets", "subsector": "Vet clinics", "deal_type": "Take-private", "status": "Announced", "value_usd_millions": 850, "value_text": "$850M", "description": "Operator of 140 general-practice vet clinics in the Southeast.", "significance": 78, "is_update": false, "sources": [{"publisher": "PR Newswire", "url": "https://example.com/tailwag"}]},
+    {"acquirer": "Crestline Restaurant Group", "target": "Pico Grill", "sector": "Restaurants & Foodservice", "subsector": "Fast casual", "deal_type": "Acquisition", "status": "Completed", "value_usd_millions": null, "value_text": "Undisclosed", "description": "42-unit Mexican fast-casual chain; expands Crestline into the Mountain West.", "significance": 55, "is_update": false, "sources": [{"publisher": "Restaurant Business", "url": "https://example.com/pico"}]},
+    {"acquirer": "Lumen Beauty", "target": "Fern & Moss Skincare", "sector": "Consumer Health & Beauty", "subsector": "Prestige skincare", "deal_type": "Acquisition", "status": "Announced", "value_usd_millions": 310, "value_text": "EUR 285M (~$310M)", "description": "Clean-skincare brand with strong Sephora presence; Lumen's third indie acquisition this year.", "significance": 70, "is_update": false, "sources": [{"publisher": "BeautyMatter", "url": "https://example.com/fern"}]},
+    {"acquirer": "Oakridge Partners", "target": "Summit Outfitters", "sector": "Retail & E-commerce", "subsector": "Outdoor specialty retail", "deal_type": "Acquisition", "status": "Terminated", "value_usd_millions": 1200, "value_text": "$1.2B", "description": "Deal abandoned after FTC challenge; Summit to pursue standalone plan.", "significance": 74, "is_update": true, "sources": [{"publisher": "Reuters", "url": "https://example.com/summit"}]},
+    {"acquirer": "Brightside Brands", "target": "Kettle Creek Coffee", "sector": "Food & Beverage", "subsector": "Coffee", "deal_type": "Minority stake", "status": "Announced", "value_usd_millions": 40, "value_text": "$40M", "description": "25% stake in a regional specialty coffee roaster with grocery distribution.", "significance": 35, "is_update": false, "sources": [{"publisher": "Food Dive", "url": "https://example.com/kettle"}]}
+  ],
+  "rumors": [
+    {"headline": "Maple Home said to explore sale of its outdoor furniture unit", "sector": "Home, Leisure & Consumer Services", "source": {"publisher": "Bloomberg", "url": "https://example.com/maple"}}
+  ],
+  "format": {"max_deals_per_sector": 8, "max_total_deals": 40, "show_sources": true, "include_rumors": true},
+  "tuning_notes": ["Sample tuning note"]
+}
